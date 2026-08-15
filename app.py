@@ -13,9 +13,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 
 
-# =========================
+# =========================================================
 # GLOBAL VARIABLES
-# =========================
+# =========================================================
 
 filename = None
 df = None
@@ -27,23 +27,28 @@ y_test = None
 
 model = None
 
-knn_acc = 0
-nb_acc = 0
-lr_accuracy = 0
+knn_acc = None
+nb_acc = None
+lr_accuracy = None
 
 feature_encoders = {}
+numeric_fill_values = {}
 target_encoder = None
-
 training_columns = []
 
+MISSING_VALUES = ["?", "", "nan", "NaN", "None", "null", "NULL"]
 
-# =========================
+
+# =========================================================
 # COLUMN NAME MAPPING
-# =========================
+# Supports CKD.csv and modified_dataset/test1.csv
+# =========================================================
 
 COLUMN_MAPPING = {
     "blood_pressure": "bp",
     "specific_gravity": "sg",
+    "albumin": "al",
+    "sugar": "su",
     "red_blood_cells": "rbc",
     "pus_cell": "pc",
     "pus_cell_clumps": "pcc",
@@ -62,13 +67,37 @@ COLUMN_MAPPING = {
     "coronary_artery_disease": "cad",
     "appetite": "appet",
     "pedal_edema": "pe",
-    "anemia": "ane"
+    "anemia": "ane",
+    "class": "classification"
 }
 
 
-# =========================
+# =========================================================
+# HELPER: CLEAN VALUES
+# =========================================================
+
+def clean_missing_values(data):
+    data = data.copy()
+
+    for column in data.columns:
+        data[column] = data[column].replace(
+            MISSING_VALUES,
+            pd.NA
+        )
+
+        if data[column].dtype == "object":
+            data[column] = (
+                data[column]
+                .astype("string")
+                .str.strip()
+            )
+
+    return data
+
+
+# =========================================================
 # UPLOAD DATASET
-# =========================
+# =========================================================
 
 def upload():
     global filename, df
@@ -85,40 +114,58 @@ def upload():
         df = pd.read_csv(filename)
 
         if df.empty:
-            messagebox.showerror("Error", "The selected dataset is empty.")
+            messagebox.showerror(
+                "Error",
+                "The selected dataset is empty."
+            )
             return
-
-        df.fillna(df.mode().iloc[0], inplace=True)
 
         pathlabel.config(text=filename)
 
         text.delete("1.0", END)
 
-        text.insert(END, "Dataset loaded successfully\n\n")
-        text.insert(END, "Dataset Size: " + str(len(df)) + " rows\n")
-        text.insert(END, "Number of Columns: " + str(len(df.columns)) + "\n\n")
+        text.insert(
+            END,
+            "Dataset loaded successfully\n\n"
+        )
 
-        text.insert(END, "Columns:\n")
+        text.insert(
+            END,
+            f"Dataset Size: {len(df)} rows\n"
+        )
+
+        text.insert(
+            END,
+            f"Number of Columns: {len(df.columns)}\n\n"
+        )
+
+        text.insert(
+            END,
+            "Columns:\n"
+        )
 
         for column in df.columns:
-            text.insert(END, f"- {column}\n")
+            text.insert(
+                END,
+                f"- {column}\n"
+            )
 
     except Exception as e:
         messagebox.showerror(
             "Dataset Error",
-            f"Unable to load dataset.\n\n{str(e)}"
+            f"Unable to load dataset.\n\n{e}"
         )
 
 
-# =========================
-# SPLIT DATASET
-# =========================
+# =========================================================
+# SPLIT DATASET + PREPROCESSING
+# =========================================================
 
 def splitdataset():
     global df
     global X_train, X_test, y_train, y_test
-    global feature_encoders, target_encoder
-    global training_columns
+    global feature_encoders, numeric_fill_values
+    global target_encoder, training_columns
 
     if df is None:
         messagebox.showwarning(
@@ -130,55 +177,131 @@ def splitdataset():
     try:
         data = df.copy()
 
-        # Rename columns if modified dataset is selected
-        data.rename(columns=COLUMN_MAPPING, inplace=True)
+        data.rename(
+            columns=COLUMN_MAPPING,
+            inplace=True
+        )
 
-        # Remove ID because it is not a useful ML feature
+        data = clean_missing_values(data)
+
         if "id" in data.columns:
-            data.drop(columns=["id"], inplace=True)
+            data.drop(
+                columns=["id"],
+                inplace=True
+            )
 
-        # Last column is the target
+        if len(data.columns) < 2:
+            raise ValueError(
+                "Dataset must contain features and a target column."
+            )
+
         target_column = data.columns[-1]
 
-        X = data.drop(columns=[target_column])
-        y = data[target_column]
+        X = data.drop(
+            columns=[target_column]
+        ).copy()
 
-        # Store training column names
+        y = data[target_column].copy()
+
+        y = (
+            y.astype("string")
+            .str.strip()
+        )
+
         training_columns = list(X.columns)
 
         feature_encoders = {}
+        numeric_fill_values = {}
 
-        # Convert feature columns into numeric values
         for column in X.columns:
 
-            if X[column].dtype == "object":
+            numeric_values = pd.to_numeric(
+                X[column],
+                errors="coerce"
+            )
+
+            non_missing = X[column].notna().sum()
+
+            if non_missing > 0:
+                numeric_ratio = (
+                    numeric_values.notna().sum()
+                    / non_missing
+                )
+            else:
+                numeric_ratio = 0
+
+            if numeric_ratio >= 0.8:
+
+                X[column] = numeric_values
+
+                median_value = X[column].median()
+
+                if pd.isna(median_value):
+                    median_value = 0.0
+
+                numeric_fill_values[column] = float(
+                    median_value
+                )
+
+                X[column] = X[column].fillna(
+                    median_value
+                )
+
+            else:
+
+                mode_values = X[column].mode(
+                    dropna=True
+                )
+
+                if mode_values.empty:
+                    fill_value = "unknown"
+                else:
+                    fill_value = str(
+                        mode_values.iloc[0]
+                    ).strip()
+
+                X[column] = X[column].fillna(
+                    fill_value
+                )
+
+                X[column] = (
+                    X[column]
+                    .astype(str)
+                    .str.strip()
+                )
 
                 encoder = LabelEncoder()
 
                 X[column] = encoder.fit_transform(
-                    X[column].astype(str)
+                    X[column]
                 )
 
                 feature_encoders[column] = encoder
 
-            else:
+        X = X.fillna(0)
 
-                X[column] = pd.to_numeric(
-                    X[column],
-                    errors="coerce"
-                )
+        if X.isna().sum().sum() != 0:
+            raise ValueError(
+                "Missing values still exist in the feature data."
+            )
 
-        # Handle any remaining missing numeric values
-        X.fillna(X.median(numeric_only=True), inplace=True)
+        y = y.fillna(
+            y.mode().iloc[0]
+            if not y.mode().empty
+            else "unknown"
+        )
 
-        # Encode target
         target_encoder = LabelEncoder()
 
         y = target_encoder.fit_transform(
-            y.astype(str)
+            y.astype(str).str.strip()
         )
 
-        # Split dataset
+        if len(target_encoder.classes_) < 2:
+            raise ValueError(
+                "The target column must contain at least two classes."
+            )
+
         X_train, X_test, y_train, y_test = train_test_split(
             X,
             y,
@@ -187,7 +310,6 @@ def splitdataset():
             stratify=y
         )
 
-        # Save test data for reference
         X_test.to_csv(
             "test1.csv",
             index=False
@@ -195,64 +317,75 @@ def splitdataset():
 
         text.delete("1.0", END)
 
-        text.insert(END, "Dataset split successfully\n\n")
-
         text.insert(
             END,
-            "Training Size: "
-            + str(len(X_train))
-            + "\n"
+            "Dataset split successfully\n\n"
         )
 
         text.insert(
             END,
-            "Test Size: "
-            + str(len(X_test))
-            + "\n\n"
+            f"Training Size: {len(X_train)}\n"
         )
 
-        text.insert(END, "Features used:\n")
+        text.insert(
+            END,
+            f"Test Size: {len(X_test)}\n\n"
+        )
+
+        text.insert(
+            END,
+            "Features used:\n"
+        )
 
         for column in training_columns:
-            text.insert(END, f"- {column}\n")
+            text.insert(
+                END,
+                f"- {column}\n"
+            )
+
+        text.insert(
+            END,
+            "\nMissing values handled successfully.\n"
+        )
+
+        text.insert(
+            END,
+            f"Target classes: {list(target_encoder.classes_)}\n"
+        )
 
     except Exception as e:
-
         messagebox.showerror(
             "Split Error",
-            f"Unable to split dataset.\n\n{str(e)}"
+            f"Unable to split dataset.\n\n{e}"
         )
 
 
-# =========================
+# =========================================================
 # CHECK DATASET
-# =========================
+# =========================================================
 
 def check_dataset():
-
     if X_train is None:
         messagebox.showwarning(
             "Warning",
-            "Please split the dataset first."
+            "Please upload and split the dataset first."
         )
         return False
 
     return True
 
 
-# =========================
+# =========================================================
 # KNN
-# =========================
+# =========================================================
 
 def knn():
-
     global knn_acc
 
     if not check_dataset():
         return
 
     try:
-
         knn_model = KNeighborsClassifier(
             n_neighbors=5
         )
@@ -277,34 +410,31 @@ def knn():
         )
 
     except Exception as e:
-
         messagebox.showerror(
             "KNN Error",
             str(e)
         )
 
 
-# =========================
+# =========================================================
 # NAIVE BAYES
-# =========================
+# =========================================================
 
 def naive_bayes():
-
     global nb_acc
 
     if not check_dataset():
         return
 
     try:
+        nb_model = GaussianNB()
 
-        nb = GaussianNB()
-
-        nb.fit(
+        nb_model.fit(
             X_train,
             y_train
         )
 
-        y_pred = nb.predict(
+        y_pred = nb_model.predict(
             X_test
         )
 
@@ -315,34 +445,30 @@ def naive_bayes():
 
         text.insert(
             END,
-            f"\nNaive Bayes Accuracy: "
-            f"{nb_acc * 100:.2f}%\n"
+            f"\nNaive Bayes Accuracy: {nb_acc * 100:.2f}%\n"
         )
 
     except Exception as e:
-
         messagebox.showerror(
             "Naive Bayes Error",
             str(e)
         )
 
 
-# =========================
+# =========================================================
 # LOGISTIC REGRESSION
-# =========================
+# =========================================================
 
 def logistic_regression():
-
     global model, lr_accuracy
 
     if not check_dataset():
         return
 
     try:
-
         model = LogisticRegression(
             solver="liblinear",
-            max_iter=1000
+            max_iter=2000
         )
 
         model.fit(
@@ -366,23 +492,30 @@ def logistic_regression():
         )
 
     except Exception as e:
-
         messagebox.showerror(
             "Logistic Regression Error",
             str(e)
         )
 
 
-# =========================
+# =========================================================
 # PLOT RESULTS
-# =========================
+# =========================================================
 
 def plot_bar_graph():
 
-    if X_train is None:
+    if not check_dataset():
+        return
+
+    if (
+        knn_acc is None
+        or nb_acc is None
+        or lr_accuracy is None
+    ):
         messagebox.showwarning(
             "Warning",
-            "Please split the dataset first."
+            "Please run KNN, Naive Bayes, and "
+            "Logistic Regression first."
         )
         return
 
@@ -398,7 +531,9 @@ def plot_bar_graph():
         lr_accuracy * 100
     ]
 
-    plt.figure(figsize=(9, 6))
+    plt.figure(
+        figsize=(9, 6)
+    )
 
     plt.bar(
         algorithms,
@@ -419,10 +554,9 @@ def plot_bar_graph():
 
     plt.ylim(0, 100)
 
-    for i, accuracy in enumerate(accuracies):
-
+    for index, accuracy in enumerate(accuracies):
         plt.text(
-            i,
+            index,
             accuracy + 1,
             f"{accuracy:.2f}%",
             ha="center",
@@ -430,34 +564,35 @@ def plot_bar_graph():
         )
 
     plt.tight_layout()
-
     plt.show()
 
 
-# =========================
+# =========================================================
 # PREPARE PREDICTION DATA
-# =========================
+# =========================================================
 
 def prepare_prediction_data(input_data):
 
-    global training_columns
+    if not training_columns:
+        raise ValueError(
+            "Please split the dataset before prediction."
+        )
 
     data = input_data.copy()
 
-    # Rename modified dataset columns
     data.rename(
         columns=COLUMN_MAPPING,
         inplace=True
     )
 
-    # Remove ID if it exists
+    data = clean_missing_values(data)
+
     if "id" in data.columns:
         data.drop(
             columns=["id"],
             inplace=True
         )
 
-    # Check missing columns
     missing_columns = [
         column
         for column in training_columns
@@ -465,65 +600,53 @@ def prepare_prediction_data(input_data):
     ]
 
     if missing_columns:
-
         raise ValueError(
-            "The prediction CSV is missing these columns:\n\n"
+            "The prediction file is missing these columns:\n\n"
             + "\n".join(missing_columns)
         )
 
-    # Keep only training columns
     data = data[
         training_columns
-    ]
+    ].copy()
 
-    # Process each column
     for column in training_columns:
 
         if column in feature_encoders:
 
             encoder = feature_encoders[column]
 
-            # Convert values to strings
-            values = data[column].astype(str)
-
-            # Check whether values already look like encoded numbers
-            try:
-
-                numeric_values = pd.to_numeric(
-                    data[column]
-                )
-
-                valid_encoded = (
-                    numeric_values.min() >= 0
-                    and
-                    numeric_values.max() < len(
-                        encoder.classes_
-                    )
-                )
-
-                if valid_encoded:
-                    data[column] = numeric_values
-                    continue
-
-            except Exception:
-                pass
-
-            # Encode original categorical values
-            known_classes = set(
-                encoder.classes_
+            numeric_values = pd.to_numeric(
+                data[column],
+                errors="coerce"
             )
 
-            unknown_values = [
-                value
-                for value in values
-                if value not in known_classes
-            ]
+            if (
+                numeric_values.notna().all()
+                and numeric_values.min() >= 0
+                and numeric_values.max()
+                < len(encoder.classes_)
+            ):
+                data[column] = numeric_values
+                continue
+
+            mode_value = encoder.classes_[0]
+
+            values = (
+                data[column]
+                .fillna(mode_value)
+                .astype(str)
+                .str.strip()
+            )
+
+            unknown_values = sorted(
+                set(values)
+                - set(encoder.classes_)
+            )
 
             if unknown_values:
-
                 raise ValueError(
-                    f"Unknown value '{unknown_values[0]}' "
-                    f"found in column '{column}'."
+                    f"Unknown value(s) in column "
+                    f"'{column}': {unknown_values}"
                 )
 
             data[column] = encoder.transform(
@@ -537,51 +660,49 @@ def prepare_prediction_data(input_data):
                 errors="coerce"
             )
 
-    # Fill missing numeric values
-    data.fillna(
-        X_train.median(),
-        inplace=True
-    )
+            fill_value = numeric_fill_values.get(
+                column,
+                0.0
+            )
+
+            data[column] = data[column].fillna(
+                fill_value
+            )
+
+    data = data.fillna(0)
+
+    if data.isna().sum().sum() != 0:
+        raise ValueError(
+            "Prediction data still contains missing values."
+        )
 
     return data
 
 
-# =========================
+# =========================================================
 # PREDICTION
-# =========================
+# =========================================================
 
 def predict():
 
-    global model
-
     if model is None:
-
         messagebox.showwarning(
             "Warning",
             "Please run Logistic Regression first."
         )
-
         return
 
     filename = filedialog.askopenfilename(
         title="Select CSV File",
-        filetypes=[
-            ("CSV files", "*.csv")
-        ]
+        filetypes=[("CSV files", "*.csv")]
     )
 
     if not filename:
         return
 
     try:
-
         input_data = pd.read_csv(
             filename
-        )
-
-        input_data.fillna(
-            input_data.mode().iloc[0],
-            inplace=True
         )
 
         prediction_data = prepare_prediction_data(
@@ -607,37 +728,33 @@ def predict():
             "========================\n\n"
         )
 
-        for i, prediction in enumerate(
+        for index, prediction in enumerate(
             y_pred,
             start=1
         ):
 
             if target_encoder is not None:
-
                 result = target_encoder.inverse_transform(
                     [int(prediction)]
                 )[0]
-
             else:
-
                 result = prediction
 
             text.insert(
                 END,
-                f"Row {i}: {result}\n"
+                f"Row {index}: {result}\n"
             )
 
     except Exception as e:
-
         messagebox.showerror(
             "Prediction Error",
-            f"Unable to make predictions.\n\n{str(e)}"
+            f"Unable to make predictions.\n\n{e}"
         )
 
 
-# =========================
+# =========================================================
 # MAIN WINDOW
-# =========================
+# =========================================================
 
 main = tk.Tk()
 
@@ -654,9 +771,9 @@ main.configure(
 )
 
 
-# =========================
+# =========================================================
 # TITLE
-# =========================
+# =========================================================
 
 font_title = (
     "Helvetica",
@@ -680,9 +797,9 @@ title.place(
 )
 
 
-# =========================
+# =========================================================
 # TEXT AREA
-# =========================
+# =========================================================
 
 font1 = (
     "Arial",
@@ -703,9 +820,9 @@ text.place(
 )
 
 
-# =========================
+# =========================================================
 # PATH LABEL
-# =========================
+# =========================================================
 
 pathlabel = tk.Label(
     main,
@@ -721,9 +838,9 @@ pathlabel.place(
 )
 
 
-# =========================
+# =========================================================
 # BUTTON STYLE
-# =========================
+# =========================================================
 
 button_style = {
     "font": (
@@ -739,9 +856,9 @@ button_style = {
 }
 
 
-# =========================
+# =========================================================
 # BUTTONS
-# =========================
+# =========================================================
 
 uploadButton = tk.Button(
     main,
@@ -841,8 +958,8 @@ predict_button.place(
 )
 
 
-# =========================
+# =========================================================
 # START APPLICATION
-# =========================
+# =========================================================
 
 main.mainloop()
