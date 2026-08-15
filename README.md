@@ -132,3 +132,20 @@ This project is developed for educational and research purposes only. The predic
 ## License
 
 This project is intended for educational purposes.
+## Screenshots
+
+### Home Interface
+
+![Home Interface](screenshots/home.png)
+
+### Dataset Split
+
+![Dataset Split](screenshots/split_dataset.png)
+
+### Model Results
+
+![Model Results](screenshots/prediction.png)
+
+### Accuracy Comparison
+
+![Accuracy Comparison](screenshots/results.png)
