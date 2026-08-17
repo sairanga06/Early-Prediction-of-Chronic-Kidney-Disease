@@ -100,3 +100,30 @@ Early-Prediction-of-Chronic-Kidney-Disease-main
 ├── README.md
 ├── requirements.txt
 └── ...
+---
+
+## 📸 Application Screenshots
+
+### 🏠 Home Page
+
+![CKD Prediction System - Home Page](screenshots/live-home.png)
+
+---
+
+### 📝 Prediction Form
+
+![CKD Prediction System - Prediction Form](screenshots/live-form.png)
+
+---
+
+### 🩺 Prediction Result
+
+![CKD Prediction System - Prediction Result](screenshots/live-result.png)
+
+---
+
+### 🔍 Health Check
+
+![CKD Prediction System - Health Check](screenshots/live-health.png)
+
+---
