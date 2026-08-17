@@ -389,6 +389,24 @@ def train_model():
 
 
 # =========================================================
+# TRAIN MODEL WHEN FLASK/GUNICORN IMPORTS THIS FILE
+# =========================================================
+# Gunicorn imports web_app.app instead of executing this file
+# as "__main__". Therefore, train the model during module
+# startup so it is available in the deployed web application.
+
+try:
+    train_model()
+except Exception as e:
+    print("\n==========================================")
+    print("APPLICATION STARTUP ERROR")
+    print("==========================================")
+    print(e)
+    print("==========================================\n")
+    raise
+
+
+# =========================================================
 # PREPARE USER INPUT FOR PREDICTION
 # =========================================================
 
@@ -652,23 +670,10 @@ def predict():
 
 if __name__ == "__main__":
 
-    try:
+    print("Starting Flask server...")
+    print("Open: http://127.0.0.1:5000")
+    print("Health check: http://127.0.0.1:5000/health")
 
-        # Train the model before starting Flask
-        train_model()
-
-        print("Starting Flask server...")
-        print("Open: http://127.0.0.1:5000")
-        print("Health check: http://127.0.0.1:5000/health")
-
-        app.run(
-            debug=True
-        )
-
-    except Exception as e:
-
-        print("\n==========================================")
-        print("APPLICATION STARTUP ERROR")
-        print("==========================================")
-        print(e)
-        print("==========================================\n")
+    app.run(
+        debug=True
+    )
