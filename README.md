@@ -2,41 +2,51 @@
 
 A machine learning based web application for predicting Chronic Kidney Disease (CKD) using patient clinical information.
 
-The project originally started as a desktop application and has been converted into a Flask-based web application while keeping the machine learning prediction functionality.
+The project originally started as a desktop application and was later converted into a Flask-based web application while keeping the existing machine learning prediction functionality.
 
 ---
 
-## Project Overview
+## 🌐 Live Demo
 
-Chronic Kidney Disease is a serious health condition that can be difficult to identify at an early stage.
+Try the deployed CKD Prediction System:
 
-This project uses a machine learning model to analyze clinical parameters and provide a CKD prediction.
-
-The web application allows users to enter patient information through a simple web interface and receive a model prediction.
-
-> **Disclaimer:** This project is developed for educational and project demonstration purposes. The prediction should not be considered a medical diagnosis or a substitute for professional medical advice.
+https://early-prediction-of-chronic-kidney-bpfe.onrender.com
 
 ---
 
-## Features
+## 📌 Project Overview
+
+Chronic Kidney Disease (CKD) is a serious health condition that can be difficult to identify at an early stage.
+
+This project uses machine learning to analyze clinical parameters and predict whether a patient is likely to belong to the CKD or non-CKD class.
+
+The application provides a web-based interface where users can enter patient clinical information and receive a machine learning prediction.
+
+> **Disclaimer:** This application is developed for educational and project demonstration purposes only. The prediction should not be considered a medical diagnosis or a substitute for professional medical advice.
+
+---
+
+## ✨ Features
 
 - Machine learning based CKD prediction
-- Flask backend
-- Web-based prediction interface
+- Flask web application
+- Responsive web interface
 - 24 clinical input features
 - Logistic Regression model
-- Dataset loading and preprocessing
+- CKD dataset loading and preprocessing
 - Input validation
-- Backend error handling
+- Prediction API
+- Health-check API
 - Prediction result display
 - Clear Form functionality
-- Health-check endpoint
-- Responsive web interface
-- Medical disclaimer
+- Error handling
+- GitHub integration
+- Cloud deployment using Render
+- Live prediction system
 
 ---
 
-## Technologies Used
+## 🛠️ Technologies Used
 
 ### Programming Language
 
@@ -45,6 +55,7 @@ The web application allows users to enter patient information through a simple w
 ### Backend
 
 - Flask
+- Gunicorn
 
 ### Machine Learning
 
@@ -59,15 +70,16 @@ The web application allows users to enter patient information through a simple w
 - CSS3
 - JavaScript
 
-### Development Tools
+### Tools
 
 - Visual Studio Code
 - Git
 - GitHub
+- Render
 
 ---
 
-## Project Structure
+## 📂 Project Structure
 
 ```text
 Early-Prediction-of-Chronic-Kidney-Disease-main
@@ -76,7 +88,6 @@ Early-Prediction-of-Chronic-Kidney-Disease-main
 │   └── CKD.csv
 │
 ├── web_app
-│   │
 │   ├── app.py
 │   │
 │   ├── templates
@@ -85,9 +96,7 @@ Early-Prediction-of-Chronic-Kidney-Disease-main
 │   └── static
 │       └── style.css
 │
-├── screenshots
-│
 ├── .gitignore
-├── requirements.txt
 ├── README.md
+├── requirements.txt
 └── ...
