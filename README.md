@@ -11,6 +11,8 @@ The project originally started as a desktop application and was later converted 
 Try the deployed CKD Prediction System:
 
 https://early-prediction-of-chronic-kidney-bpfe.onrender.com
+📦 **GitHub Repository:
+ https://github.com/sairanga06/Early-Prediction-of-Chronic-Kidney-Disease
 
 ---
 
